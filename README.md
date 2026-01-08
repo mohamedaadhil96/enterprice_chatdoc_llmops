@@ -174,9 +174,3 @@ python migrate_to_postgres.py
 ```
 
 ---
-
-## 📜 License
-Internal Enterprise Project - Confidential.
-
----
-*Created by [Your Name] for modern document intelligence.*
