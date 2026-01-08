@@ -69,7 +69,7 @@ const Sidebar = ({ onSessionSelect, activeSessionId, onLogout, user }) => {
                     <div className="w-10 h-10 primary-gradient rounded-xl flex items-center justify-center text-white shadow-lg">
                         <Plus className="w-6 h-6" />
                     </div>
-                    <h1 className="text-xl font-bold text-slate-900 tracking-tight">ChatDocAI</h1>
+                    <h1 className="text-xl font-bold text-slate-900 tracking-tight">Lumina AI</h1>
                 </div>
 
                 <div

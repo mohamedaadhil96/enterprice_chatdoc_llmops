@@ -64,9 +64,9 @@ async def lifespan(app: FastAPI):
 # FastAPI initialization
 # ----------------------------
 app = FastAPI(
-    title="ChatDocAI",
-    version="1.0.0",
-    description="Enterprise Document Intelligence API",
+    title="Lumina AI",
+    version="2.0.0",
+    description="Enterprise Document Intelligence Platform",
     lifespan=lifespan
 )
 

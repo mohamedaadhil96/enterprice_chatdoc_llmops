@@ -1,6 +1,6 @@
-# 🚀 ChatDocAI: Enterprise-Grade RAG Assistant
+# 🚀 Lumina AI: Enterprise Document Intelligence
 
-**ChatDocAI** is a professional, full-stack AI application designed to transform your static documents into an interactive knowledge base. Built with precision for enterprise scalability, it features high-performance retrieval-augmented generation (RAG), persistent document storage, and a stunning modern interface.
+**Lumina AI** is a professional, full-stack AI platform designed to transform your static documents into an interactive knowledge base. Built with precision for enterprise scalability, it features high-performance retrieval-augmented generation (RAG), persistent document storage, and a stunning modern interface.
 
 ![Full Walkthrough](docs/assets/full_video.gif)
 
@@ -13,7 +13,7 @@
 
 Our architecture is designed for speed, security, and enterprise reliability.
 
-![ChatDocAI Layered Architecture Diagram](docs/assets/architecture_diagram.png)
+![Lumina AI Layered Architecture Diagram](docs/assets/architecture_diagram.png)
 
 ```mermaid
 graph TD
@@ -60,7 +60,7 @@ graph TD
 
 ### Backend
 ```text
-ChatDocAI/
+LuminaAI/
 ├── main.py                    # FastAPI Entry point & Auth/Chat/Upload routes
 ├── migrate_to_postgres.py     # JSON to PostgreSQL migration script
 ├── multi_doc_chat/            # Core Backend Package

@@ -61,7 +61,7 @@ const Auth = ({ onLogin }) => {
                             {isLogin ? 'Welcome Back' : 'Create Account'}
                         </h1>
                         <p className="text-slate-500 mt-2 font-medium">
-                            {isLogin ? 'Enter your credentials to continue' : 'Join our document intelligence platform'}
+                            {isLogin ? 'Enter your credentials to continue' : 'Join the Lumina document intelligence platform'}
                         </p>
                     </div>
 
