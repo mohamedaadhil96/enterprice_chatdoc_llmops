@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+ENV/
+.env
+.python-version
+
+# Local Data & State
+data/
+users/
+logs/
+temp_uploads/
+faiss_index/
+sessions/
+postgres_data/
+
+# Notebooks & Research
+notebook/
+.ipynb_checkpoints/
+
+# Development & Build
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+frontend/.eslintcache
+dist/
+build/
+*.log
+*.swp
+*.bak
+
+# IDEs
+.vscode/
+.idea/
+.DS_Store
+
+# OS
+Thumbs.db
+ehthumbs.db
+
+# Temporary Scripts
+test.py
+test_*.py

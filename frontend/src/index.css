@@ -1,0 +1,41 @@
+@import "tailwindcss";
+@config "../tailwind.config.js";
+
+:root {
+  background-color: #ffffff;
+  color: #1a1a1a;
+}
+
+body {
+  @apply bg-slate-50 text-slate-900 antialiased;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+.glass-card {
+  @apply bg-white/80 backdrop-blur-md border border-white/20 shadow-xl shadow-slate-200/50;
+}
+
+.sidebar-gradient {
+  @apply bg-white border-r border-slate-200;
+}
+
+.primary-gradient {
+  @apply bg-blue-600 hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200;
+}
+
+/* Custom scrollbar for enterprise feel */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-200 rounded-full hover:bg-slate-300 transition-colors;
+}
+
+.gradient-text {
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-cyan-400;
+}

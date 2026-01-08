@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title> ChatDocAI | Enterprise AI</title>
+
+  <!-- Dynamic CSS Path for both Live Server and FastAPI -->
+  <link id="dynamic-styles" rel="stylesheet" href="" />
+
+  <!-- Lucide Icons for enterprise look -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    // Determine correct CSS path based on server
+    (function () {
+      const isLiveServer = window.location.port === '5500';
+      const cssLink = document.getElementById('dynamic-styles');
+      cssLink.href = isLiveServer ? '../static/styles.css' : '/static/styles.css';
+      console.log('CSS loaded from:', cssLink.href);
+    })();
+
+    const $ = (sel) => document.querySelector(sel);
+    let sessionId = localStorage.getItem('mdc_session_id') || '';
+    let token = localStorage.getItem('mdc_token') || '';
+    let user = JSON.parse(localStorage.getItem('mdc_user') || 'null');
+
+    // Auto-detect API base URL (Enterprise-ready)
+    const API_BASE = window.location.port === '5500' ? 'http://127.0.0.1:8000' : '';
+    console.log('API Base:', API_BASE || '(same origin)');
+
+    async function uploadFiles(evt) {
+      if (evt) evt.preventDefault();
+      if (!token) {
+        showAuthModal();
+        toast('Please login to upload documents', 'error');
+        return;
+      }
+
+      const input = $('#file-input');
+      const files = input.files;
+      if (!files || files.length === 0) {
+        toast('Please choose at least one file', 'error');
+        return;
+      }
+
+      console.log('Uploading files:', Array.from(files).map(f => f.name));
+      toggleIndexing(true);
+      try {
+        const fd = new FormData();
+        for (const f of files) fd.append('files', f);
+        const res = await fetch(`${API_BASE}/upload`, {
+          method: 'POST',
+          body: fd,
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        if (res.status === 401) {
+          logout();
+          showAuthModal();
+          throw new Error('Please login again');
+        }
+        if (!res.ok) {
+          const errData = await res.json();
+          throw new Error(errData.detail || 'Upload failed');
+        }
+        const data = await res.json();
+        console.log('Upload success:', data);
+
+        sessionId = data.session_id;
+        localStorage.setItem('mdc_session_id', sessionId);
+
+        const filenames = Array.from(files).map(f => f.name);
+        localStorage.setItem('mdc_filenames', JSON.stringify(filenames));
+
+        showChat();
+        toast('Documents indexed successfully.');
+        updateFileList(filenames);
+      } catch (e) {
+        console.error('Upload Error:', e);
+        toast('Indexing failed: ' + e.message, 'error');
+      } finally {
+        toggleIndexing(false);
+      }
+    }
+
+    function updateFileList(filenames) {
+      if (!filenames) {
+        const stored = localStorage.getItem('mdc_filenames');
+        filenames = stored ? JSON.parse(stored) : [];
+      }
+
+      console.log('Updating file list with:', filenames);
+      const container = $('#file-list');
+      if (!container) return;
+
+      container.innerHTML = '';
+      if (filenames.length === 0) {
+        container.innerHTML = '<div class="hint">No documents uploaded yet</div>';
+        return;
+      }
+
+      filenames.forEach(name => {
+        const item = document.createElement('div');
+        item.className = 'file-item';
+        item.innerHTML = `<i data-lucide="file-text"></i><span>${name}</span>`;
+        container.appendChild(item);
+      });
+
+      if (window.lucide) {
+        lucide.createIcons();
+      }
+    }
+
+    async function sendMessage() {
+      const input = $('#message-input');
+      const text = input.value.trim();
+      if (!sessionId) { toast('Please upload documents first.', 'error'); return; }
+      if (!text) return;
+
+      if (!token) {
+        showAuthModal();
+        toast('Please login to continue', 'error');
+        return;
+      }
+
+      appendMessage('user', text);
+      input.value = '';
+      input.style.height = 'auto'; // Reset height
+
+      toggleThinking(true);
+      try {
+        const res = await fetch(`${API_BASE}/chat`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ session_id: sessionId, message: text })
+        });
+        if (res.status === 401) {
+          logout();
+          showAuthModal();
+          throw new Error('Please login again');
+        }
+        if (!res.ok) {
+          const errData = await res.json();
+          // Handle expired/invalid session
+          if (res.status === 400 && errData.detail?.includes('session')) {
+            localStorage.removeItem('mdc_session_id');
+            localStorage.removeItem('mdc_filenames');
+            sessionId = '';
+            hideChat();
+            toast('Session expired. Please re-upload your documents.', 'error');
+            return;
+          }
+          throw new Error(errData.detail || 'Chat failed');
+        }
+        const data = await res.json();
+        appendMessage('assistant', data.answer);
+      } catch (e) {
+        console.error(e);
+        toast('Failed to get a response: ' + e.message, 'error');
+      } finally {
+        toggleThinking(false);
+      }
+    }
+
+    function appendMessage(role, text) {
+      const container = $('#messages');
+      const bubble = document.createElement('div');
+      bubble.className = `bubble ${role}`;
+      // Basic markdown-like line breaks
+      bubble.innerText = text;
+      container.appendChild(bubble);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function toggleIndexing(on) {
+      const btn = $('#upload-btn');
+      btn.disabled = on;
+      btn.innerHTML = on ? '<span>Indexing...</span>' : '<i data-lucide="upload"></i><span>Upload & Index</span>';
+      lucide.createIcons();
+    }
+
+    function toggleThinking(on) {
+      $('#send-btn').disabled = on;
+      if (on) {
+        const container = $('#messages');
+        const thinking = document.createElement('div');
+        thinking.id = 'thinking-indicator';
+        thinking.className = 'bubble assistant';
+        thinking.innerHTML = `<div class="thinking-dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>`;
+        container.appendChild(thinking);
+        container.scrollTop = container.scrollHeight;
+      } else {
+        const indicator = $('#thinking-indicator');
+        if (indicator) indicator.remove();
+      }
+    }
+
+    function showChat() {
+      $('#welcome-screen').classList.add('hidden');
+      $('#chat').classList.remove('hidden');
+    }
+
+    function hideChat() {
+      $('#welcome-screen').classList.remove('hidden');
+      $('#chat').classList.add('hidden');
+      $('#messages').innerHTML = '';
+      updateFileList([]);
+    }
+
+    function toast(msg, type = 'success') {
+      const el = $('#toast');
+      el.innerHTML = `<i data-lucide="${type === 'success' ? 'check-circle' : 'alert-circle'}"></i><span>${msg}</span>`;
+      el.classList.add('show');
+      lucide.createIcons();
+      setTimeout(() => el.classList.remove('show'), 3000);
+    }
+
+    // --- Authentication Core ---
+    function showAuthModal() {
+      $('#auth-modal').classList.remove('hidden');
+    }
+
+    function hideAuthModal() {
+      $('#auth-modal').classList.add('hidden');
+    }
+
+    function toggleAuthMode() {
+      const isLogin = $('#auth-title').innerText === 'Sign In';
+      $('#auth-title').innerText = isLogin ? 'Sign Up' : 'Sign In';
+      $('#signup-name-field').classList.toggle('hidden');
+      $('#auth-btn-text').innerText = isLogin ? 'Create Account' : 'Sign In';
+      $('#auth-toggle-btn').innerText = isLogin ? 'Already have an account? Sign In' : "Don't have an account? Sign Up";
+    }
+
+    async function handleAuth(e) {
+      e.preventDefault();
+      const isLogin = $('#auth-title').innerText === 'Sign In';
+      const email = $('#auth-email').value;
+      const password = $('#auth-password').value;
+      const name = $('#auth-name').value;
+
+      const endpoint = isLogin ? '/auth/signin' : '/auth/signup';
+      const body = isLogin ? { email, password } : { email, password, name };
+
+      try {
+        const res = await fetch(`${API_BASE}${endpoint}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.detail || 'Authentication failed');
+        }
+
+        const data = await res.json();
+        if (isLogin) {
+          token = data.access_token;
+          user = data.user;
+          localStorage.setItem('mdc_token', token);
+          localStorage.setItem('mdc_user', JSON.stringify(user));
+          hideAuthModal();
+          updateUserUI();
+          toast(`Welcome back, ${user.name}!`);
+        } else {
+          toast('Account created! Please sign in.');
+          toggleAuthMode();
+        }
+      } catch (e) {
+        toast(e.message, 'error');
+      }
+    }
+
+    function logout() {
+      token = '';
+      user = null;
+      sessionId = '';
+      localStorage.removeItem('mdc_token');
+      localStorage.removeItem('mdc_user');
+      localStorage.removeItem('mdc_session_id');
+      localStorage.removeItem('mdc_filenames');
+      updateUserUI();
+      hideChat();
+      toast('Logged out successfully');
+    }
+
+    function updateUserUI() {
+      if (user) {
+        $('#user-name').innerText = user.name;
+        $('#login-btn').classList.add('hidden');
+        $('#user-menu').classList.remove('hidden');
+      } else {
+        $('#login-btn').classList.remove('hidden');
+        $('#user-menu').classList.add('hidden');
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      updateUserUI();
+
+      if (sessionId) {
+        showChat();
+        updateFileList(); // Restore file list from localStorage
+      }
+
+      $('#upload-form').addEventListener('submit', uploadFiles);
+      $('#send-btn').addEventListener('click', sendMessage);
+      $('#login-btn').addEventListener('click', showAuthModal);
+      $('#auth-close').addEventListener('click', hideAuthModal);
+      $('#auth-toggle-btn').addEventListener('click', toggleAuthMode);
+      $('#auth-form').addEventListener('submit', handleAuth);
+      $('#logout-btn').addEventListener('click', logout);
+
+      const input = $('#message-input');
+      input.addEventListener('input', () => {
+        input.style.height = 'auto';
+        input.style.height = input.scrollHeight + 'px';
+      });
+
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          sendMessage();
+        }
+      });
+
+      const drop = $('#dropzone');
+      drop.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        drop.classList.add('hover');
+      });
+      drop.addEventListener('dragleave', () => drop.classList.remove('hover'));
+      drop.addEventListener('drop', (e) => {
+        e.preventDefault();
+        drop.classList.remove('hover');
+        $('#file-input').files = e.dataTransfer.files;
+        toast('Files ready for upload');
+      });
+    });
+  </script>
+</head>
+
+<body>
+  <header>
+    <div class="header-content">
+      <div class="brand">
+        <h1><i data-lucide="bot"></i> ChatDocAI</h1>
+        <div class="hint">Enterprise Document Intelligence</div>
+      </div>
+      <div class="user-actions">
+        <button id="login-btn" class="btn btn-outline btn-sm">
+          <i data-lucide="user-plus"></i> Sign In
+        </button>
+        <div id="user-menu" class="user-menu hidden">
+          <span id="user-name" class="user-name"></span>
+          <button id="logout-btn" class="btn btn-ghost btn-sm" title="Logout">
+            <i data-lucide="log-out"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="app-container">
+    <aside>
+      <section class="upload-section">
+        <h2>Document Portal</h2>
+        <form id="upload-form">
+          <div id="dropzone">
+            <i data-lucide="cloud-upload" size="32" style="margin-bottom: 0.5rem; opacity: 0.5;"></i>
+            <p>Drag documents here</p>
+            <p style="margin: 0.5rem 0;">or</p>
+            <label class="btn btn-outline" style="width: 100%;">
+              Choose Files
+              <input id="file-input" type="file" name="files" multiple hidden />
+            </label>
+          </div>
+          <button id="upload-btn" class="btn btn-primary" type="submit" style="width: 100%; margin-top: 1rem;">
+            <i data-lucide="upload"></i>
+            <span>Upload and Process</span>
+          </button>
+        </form>
+      </section>
+
+      <section class="file-section">
+        <h2 style="font-size: 0.875rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.5rem;">
+          Active Files</h2>
+        <div id="file-list" class="file-list">
+          <div class="hint">No documents uploaded yet</div>
+        </div>
+      </section>
+    </aside>
+
+    <main>
+      <div id="welcome-screen"
+        style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem; text-align: center;">
+        <i data-lucide="message-square" size="48" style="color: var(--primary); margin-bottom: 1rem; opacity: 0.2;"></i>
+        <h2 style="margin-bottom: 0.5rem;">Ready to help</h2>
+        <p class="hint">Upload one or more documents to start a conversation</p>
+      </div>
+
+      <section id="chat" class="hidden">
+        <div id="messages" class="messages"></div>
+        <div class="composer-container">
+          <div class="composer">
+            <textarea id="message-input" rows="1" placeholder="Ask anything about your documents..."></textarea>
+            <button id="send-btn" class="btn btn-primary" style="padding: 0.5rem;">
+              <i data-lucide="send" size="18"></i>
+            </button>
+          </div>
+          <div class="hint" style="text-align: center; margin-top: 0.75rem;">
+            Powered by RAG Intelligence • Enterprise Mode
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <!-- Auth Modal -->
+  <div id="auth-modal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="auth-title">Sign In</h2>
+        <button id="auth-close" class="btn-ghost"><i data-lucide="x"></i></button>
+      </div>
+      <form id="auth-form" class="auth-form">
+        <div id="signup-name-field" class="form-group hidden">
+          <label>Full Name</label>
+          <input type="text" id="auth-name" placeholder="John Doe" />
+        </div>
+        <div class="form-group">
+          <label>Email Address</label>
+          <input type="email" id="auth-email" required placeholder="admin@enterprise.com" />
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="auth-password" required placeholder="••••••••" />
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">
+          <span id="auth-btn-text">Sign In</span>
+        </button>
+        <button type="button" id="auth-toggle-btn" class="btn-link" style="width: 100%; margin-top: 1rem;">
+          Don't have an account? Sign Up
+        </button>
+      </form>
+    </div>
+  </div>
+</body>
+
+</html>
